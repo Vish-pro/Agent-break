@@ -1,8 +1,9 @@
-import { PairingCode, safetyNumber } from '@pvtchat/protocol';
+import { decodePairing, encodePairingText, PairingParseError, safetyNumber, type PairingCode } from '@pvtchat/protocol';
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PasteCodeModal } from '../components/PasteCodeModal';
 import { QrScanner } from '../components/QrScanner';
 import { Button, H1, P } from '../components/ui';
 import { saveIdentity, savePeer, type Identity, type Peer } from '../lib/secrets';
@@ -22,10 +23,10 @@ export function PairScreen({
 }) {
   const t = useTheme();
   const [scanning, setScanning] = useState(false);
+  const [pasting, setPasting] = useState(false);
   const isInviter = !!me.registrationSecret;
 
-  const qr = useMemo(() => {
-    const code: PairingCode = {
+  const code = useMemo((): PairingCode => ({
       v: 1,
       deviceId: me.deviceId,
       name: me.name,
@@ -33,22 +34,43 @@ export function PairScreen({
       boxPk: me.boxPk,
       // Invite includes enrollment details until the partner is paired.
       ...(me.registrationSecret && !peer ? { server: me.server, registrationSecret: me.registrationSecret } : {}),
-    };
-    return JSON.stringify(code);
-  }, [me, peer]);
+  }), [me, peer]);
+  const qr = useMemo(() => JSON.stringify(code), [code]);
+
+  async function shareAsText() {
+    const doShare = () =>
+      Share.share({
+        message:
+          `💌 My "Just Us" pairing code. In the app tap "Paste code" and paste this whole message:\n\n` +
+          `${encodePairingText(code)}\n\nAfter pairing, call me and we compare the safety number.`,
+      }).catch(() => {});
+    if (code.registrationSecret) {
+      Alert.alert(
+        'Send only to your partner',
+        'This code lets one phone join your server. Send it privately, then compare safety numbers on a call.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Share', onPress: () => void doShare() },
+        ],
+      );
+    } else {
+      await doShare();
+    }
+  }
 
   const safety = peer ? safetyNumber(sodium, me, peer) : null;
 
   async function onScanned(data: string) {
     setScanning(false);
-    let code: PairingCode;
+    setPasting(false);
+    let theirs: PairingCode;
     try {
-      code = PairingCode.parse(JSON.parse(data));
-    } catch {
-      return Alert.alert("That's not a pairing code.");
+      theirs = decodePairing(data);
+    } catch (e) {
+      return Alert.alert("That's not a pairing code.", e instanceof PairingParseError ? e.message : undefined);
     }
-    if (code.deviceId === me.deviceId) return Alert.alert("That's your own code 🙂");
-    const p: Peer = { deviceId: code.deviceId, name: code.name, signPk: code.signPk, boxPk: code.boxPk };
+    if (theirs.deviceId === me.deviceId) return Alert.alert("That's your own code 🙂");
+    const p: Peer = { deviceId: theirs.deviceId, name: theirs.name, signPk: theirs.signPk, boxPk: theirs.boxPk };
     await savePeer(p);
     // Partner is enrolled; stop carrying the registration secret around.
     const { registrationSecret: _drop, ...rest } = me;
@@ -62,24 +84,31 @@ export function PairScreen({
         <H1>Pair your phones</H1>
         <P muted>
           {isInviter && !peer
-            ? '1. Your partner scans this code from "Join my partner".\n2. Then you scan the code that appears on their phone.'
+            ? '1. Your partner scans this QR, or you tap "Share my code as text" and they paste it in "Join my partner".\n2. Then you scan or paste the code from their phone.'
             : peer && !isInviter
-              ? 'Let your partner scan this code to finish pairing.'
-              : 'Scan each other’s codes, in person.'}
+              ? 'Last step: let your partner scan this QR, or share it as text so they can paste it.'
+              : 'Scan or paste each other’s codes.'}
         </P>
 
         <View style={[styles.qr, { backgroundColor: '#fff' }]}>
           <QRCode value={qr} size={240} ecl="M" />
         </View>
 
-        {!peer || isInviter ? <Button title="Scan partner's code" onPress={() => setScanning(true)} /> : null}
+        <Button title="Share my code as text" variant="ghost" onPress={() => void shareAsText()} />
+
+        {!peer || isInviter ? (
+          <>
+            <Button title="Scan partner's code" onPress={() => setScanning(true)} />
+            <Button title="Paste partner's code" variant="ghost" onPress={() => setPasting(true)} />
+          </>
+        ) : null}
 
         {safety && peer && (
           <View style={[styles.card, { backgroundColor: t.surface, borderColor: t.border }]}>
             <Text style={{ color: t.muted, marginBottom: 6 }}>Paired with {peer.name}. Safety number:</Text>
             <Text style={[styles.safety, { color: t.text }]}>{safety}</Text>
             <Text style={{ color: t.muted, marginTop: 6, fontSize: 13 }}>
-              Check that both phones show the same number. If they differ, someone swapped a code; reset and pair again.
+              Check that both phones show the same number, in person or by reading it aloud on a call. If they differ, someone swapped a code; reset and pair again.
             </Text>
           </View>
         )}
@@ -87,6 +116,7 @@ export function PairScreen({
         {peer && <Button title="Numbers match. Start chatting 💬" onPress={onDone} />}
       </ScrollView>
       <QrScanner visible={scanning} onScan={onScanned} onClose={() => setScanning(false)} />
+      <PasteCodeModal visible={pasting} onSubmit={(t) => void onScanned(t)} onClose={() => setPasting(false)} />
     </SafeAreaView>
   );
 }

@@ -1,7 +1,8 @@
-import { PairingCode } from '@pvtchat/protocol';
+import { decodePairing, PairingParseError, type PairingCode } from '@pvtchat/protocol';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PasteCodeModal } from '../components/PasteCodeModal';
 import { QrScanner } from '../components/QrScanner';
 import { Button, Field, H1, P } from '../components/ui';
 import { ApiError, normalizeServer, register } from '../lib/api';
@@ -29,6 +30,7 @@ export function SetupScreen({ onDone }: { onDone: (me: Identity) => void }) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [pasting, setPasting] = useState(false);
 
   async function enroll(serverUrl: string, registrationSecret: string, keepSecret: boolean): Promise<Identity> {
     const origin = normalizeServer(serverUrl);
@@ -61,11 +63,12 @@ export function SetupScreen({ onDone }: { onDone: (me: Identity) => void }) {
 
   async function onInviteScanned(data: string) {
     setScanning(false);
+    setPasting(false);
     let code: PairingCode;
     try {
-      code = PairingCode.parse(JSON.parse(data));
-    } catch {
-      return Alert.alert("That's not a pairing code.");
+      code = decodePairing(data);
+    } catch (e) {
+      return Alert.alert("That's not a pairing code.", e instanceof PairingParseError ? e.message : undefined);
     }
     if (!code.server || !code.registrationSecret) {
       return Alert.alert('Not an invite', 'Ask your partner to open the pairing screen on their phone.');
@@ -110,17 +113,26 @@ export function SetupScreen({ onDone }: { onDone: (me: Identity) => void }) {
           )}
 
           {mode === 'join' && (
-            <Button
-              title="Scan partner's code"
-              onPress={() => (name.trim() ? setScanning(true) : Alert.alert('Enter your name first.'))}
-              busy={busy}
-            />
+            <>
+              <Button
+                title="Scan partner's code"
+                onPress={() => (name.trim() ? setScanning(true) : Alert.alert('Enter your name first.'))}
+                busy={busy}
+              />
+              <Button
+                title="Paste code from a message"
+                variant="ghost"
+                onPress={() => (name.trim() ? setPasting(true) : Alert.alert('Enter your name first.'))}
+                disabled={busy}
+              />
+            </>
           )}
 
           {mode !== 'choose' && <Button title="Back" variant="ghost" onPress={() => setMode('choose')} />}
         </ScrollView>
       </KeyboardAvoidingView>
       <QrScanner visible={scanning} onScan={onInviteScanned} onClose={() => setScanning(false)} />
+      <PasteCodeModal visible={pasting} onSubmit={onInviteScanned} onClose={() => setPasting(false)} />
     </SafeAreaView>
   );
 }

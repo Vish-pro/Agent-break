@@ -96,6 +96,8 @@ Change `com.example.justus` in `mobile/app.json` to your own identifier first.
 3. **Phone A:** "Scan partner's code" → scan B's QR code.
 4. **Both:** check that the safety numbers match → "Start chatting".
 
+**Not in the same place?** On the pairing screen, tap **"Share my code as text"** and send it through any messenger (WhatsApp, SMS…). Your partner taps **"Paste code"**. Do the same in the other direction. Then **read the safety number to each other on a voice or video call**. Over a messenger, that call is what proves nobody swapped a code. A text code from the inviter contains the registration secret, but it stops being useful once both phones are enrolled, because registration closes at 2 devices.
+
 ## Development
 
 ```bash
