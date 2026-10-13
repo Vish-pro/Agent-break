@@ -6,7 +6,6 @@ import { SealedInner, type InnerPayload, type MediaRef, type SealedPayload } fro
  * `libsodium-wrappers-sumo` (Node/tests) and `react-native-libsodium` (app).
  */
 export interface Sodium {
-  readonly crypto_box_NONCEBYTES: number;
   readonly crypto_secretbox_NONCEBYTES: number;
   readonly crypto_secretbox_KEYBYTES: number;
   randombytes_buf(length: number): Uint8Array;
@@ -14,10 +13,13 @@ export interface Sodium {
   crypto_box_open_easy(ciphertext: Uint8Array, nonce: Uint8Array, publicKey: Uint8Array, privateKey: Uint8Array): Uint8Array;
   crypto_secretbox_easy(message: Uint8Array, nonce: Uint8Array, key: Uint8Array): Uint8Array;
   crypto_secretbox_open_easy(ciphertext: Uint8Array, nonce: Uint8Array, key: Uint8Array): Uint8Array;
-  crypto_generichash(hashLength: number, message: Uint8Array): Uint8Array;
-  from_string(str: string): Uint8Array;
+  crypto_generichash(hashLength: number, message: Uint8Array, key: Uint8Array | null): Uint8Array;
   to_string(bytes: Uint8Array): string;
 }
+
+/** Not exported as a constant by react-native-libsodium. */
+export const BOX_NONCE_BYTES = 24;
+const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s);
 
 export interface BoxKeys {
   myBoxSk: Uint8Array;
@@ -26,8 +28,8 @@ export interface BoxKeys {
 
 export function seal(sodium: Sodium, keys: BoxKeys, id: string, payload: InnerPayload, ts = Date.now()): SealedPayload {
   const inner: SealedInner = { v: 1, id, ts, p: payload };
-  const nonce = sodium.randombytes_buf(sodium.crypto_box_NONCEBYTES);
-  const ct = sodium.crypto_box_easy(sodium.from_string(JSON.stringify(inner)), nonce, keys.peerBoxPk, keys.myBoxSk);
+  const nonce = sodium.randombytes_buf(BOX_NONCE_BYTES);
+  const ct = sodium.crypto_box_easy(utf8(JSON.stringify(inner)), nonce, keys.peerBoxPk, keys.myBoxSk);
   return { nonce: toB64(nonce), ct: toB64(ct) };
 }
 
@@ -81,7 +83,7 @@ export function safetyNumber(
   b: { signPk: string; boxPk: string },
 ): string {
   const [x, y] = [a.signPk + a.boxPk, b.signPk + b.boxPk].sort();
-  const digest = sodium.crypto_generichash(30, sodium.from_string(`pvtchat-safety-v1|${x}|${y}`));
+  const digest = sodium.crypto_generichash(30, utf8(`pvtchat-safety-v1|${x}|${y}`), null);
   const groups: string[] = [];
   for (let i = 0; i < 30; i += 5) {
     // 5 bytes -> 40 bits -> 12 decimal digits would overflow display; use 5-digit groups mod 1e5.

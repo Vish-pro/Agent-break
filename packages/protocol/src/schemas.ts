@@ -52,6 +52,8 @@ export const ClientFrame = z.discriminatedUnion('type', [
     to: DeviceId,
     /** Ephemeral frames (typing) are relayed if online, never stored or pushed. */
     ephemeral: z.boolean(),
+    /** Stored but never triggers a push (read receipts). */
+    silent: z.boolean().optional(),
     payload: SealedPayload,
   }),
   z.object({ type: z.literal('ack'), ids: z.array(MessageId).min(1).max(LIMITS.maxAckBatch) }),

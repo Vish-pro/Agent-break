@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Just Us",
+    "slug": "just-us",
+    "scheme": "justus",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.example.justus",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.example.justus",
+      "allowBackup": false,
+      "adaptiveIcon": {
+        "backgroundColor": "#FFE4EC",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      ["expo-sqlite", { "useSQLCipher": true }],
+      ["expo-secure-store", { "configureAndroidBackup": false, "faceIDPermission": "Unlock your private chat." }],
+      ["expo-local-authentication", { "faceIDPermission": "Unlock your private chat." }],
+      ["expo-camera", { "cameraPermission": "Scan your partner's pairing code and take photos.", "recordAudioAndroid": false }],
+      ["expo-image-picker", { "photosPermission": "Send photos to your partner.", "cameraPermission": "Take photos to send.", "microphonePermission": false }],
+      ["expo-audio", { "microphonePermission": "Record voice notes." }],
+      ["expo-notifications", { "color": "#E0457B" }],
+      "expo-image",
+      "react-native-libsodium"
+    ],
+    "extra": {
+      "eas": {}
+    }
+  }
+}

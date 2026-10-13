@@ -156,7 +156,7 @@ export class Hub {
   }
 
   private onSend(conn: Conn, frame: Extract<ClientFrame, { type: 'send' }>): void {
-    const { id, to, ephemeral, payload } = frame;
+    const { id, to, ephemeral, silent, payload } = frame;
     if (to === conn.deviceId || !this.stmts.deviceExists.get(to)) {
       return send(conn.socket, { type: 'error', code: 'unknown_recipient', message: 'unknown recipient', id });
     }
@@ -177,7 +177,7 @@ export class Hub {
 
     if (recipient) {
       send(recipient.socket, { type: 'message', id, from: conn.deviceId, sentAt, ephemeral, payload });
-    } else if (!ephemeral) {
+    } else if (!ephemeral && !silent) {
       this.push.notify(to);
     }
     send(conn.socket, { type: 'accepted', id });

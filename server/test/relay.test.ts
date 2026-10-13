@@ -147,6 +147,17 @@ describe('messaging', () => {
     expect(s.app.db.prepare('SELECT COUNT(*) AS n FROM messages').get()).toEqual({ n: 0 });
   });
 
+  it('stores but does not push silent frames', async () => {
+    const sodium = await getSodium();
+    const ca = await connect(a);
+    const id = randomUUID();
+    const payload = seal(sodium, { myBoxSk: a.box.privateKey, peerBoxPk: b.box.publicKey }, id, { k: 'read', ids: [randomUUID()] });
+    ca.send({ type: 'send', id, to: b.deviceId, ephemeral: false, silent: true, payload });
+    await ca.next('accepted');
+    expect(s.pushed).toEqual([]);
+    expect(s.app.db.prepare('SELECT COUNT(*) AS n FROM messages').get()).toEqual({ n: 1 });
+  });
+
   it('treats a resend of the same id as idempotent', async () => {
     const sodium = await getSodium();
     const ca = await connect(a);
