@@ -1,0 +1,9 @@
+{
+  "name": "pvtchat",
+  "private": true,
+  "workspaces": ["packages/*", "server", "mobile"],
+  "scripts": {
+    "test": "npm -w server test",
+    "typecheck": "npm -w @pvtchat/protocol run typecheck && npm -w server run typecheck && npm -w mobile run typecheck"
+  }
+}
